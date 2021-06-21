@@ -6,7 +6,7 @@
 
     <groupId>com.jasperlorelai</groupId>
     <artifactId>Expansion-MagicSpells</artifactId>
-    <version>4.1-SNAPSHOT</version>
+    <version>4.2-SNAPSHOT</version>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -40,7 +40,7 @@
         <dependency>
             <groupId>com.destroystokyo.paper</groupId>
             <artifactId>paper-api</artifactId>
-            <version>1.16.3-R0.1-SNAPSHOT</version>
+            <version>1.16.5-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
 
@@ -54,7 +54,7 @@
         <dependency>
             <groupId>com.github.TheComputerGeek2</groupId>
             <artifactId>MagicSpells</artifactId>
-            <version>377ff6326dd8c25aea35bfd2cccd0e9c32f8ae5c</version>
+            <version>56db80650080889c79fc5a73afa543c61ccb87fc</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
