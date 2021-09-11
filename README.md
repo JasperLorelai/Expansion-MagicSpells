@@ -12,7 +12,7 @@ Versions:
 - [2.0](#version-20)
 - [3.0](#version-30)
 - [4.0](#version-40)
-- [5.0](#version-50)
+- [5.0](#version-51)
 
 #### Version `1.0`:
 - `%magicspells_variable_[varname]_(precision)%` - Returns MS variable value, string or floating point - the latter can have decimal precision.
@@ -54,7 +54,7 @@ Versions:
 - `%magicspells_buff_now_[spellname],(precision)%` - Returns current buff spell duration of the target.
 - `%magicspells_selectedspell%` - Returns currently selected spell of the target, on the held item (cast item).
 
-#### Version `5.0`:
+#### Version `5.1`:
 - `%magicspells_variable_[varname],(precision)%` - Returns MS variable value of the target, string or floating point.
 - `%magicspells_variable_max_[varname],(precision)%` - Returns maximal value of MS variable value of the target, floating point.
 - `%magicspells_variable_min_[varname],(precision)%` - Returns minimal value of MS variable value of the target, floating point.
@@ -67,5 +67,5 @@ Versions:
 - `%magicspells_buff_[spellname],(precision)%` - Returns initial buff spell duration.
 - `%magicspells_buff_now_[spellname],(precision)%` - Returns current buff spell duration of the target.
 - `%magicspells_selectedspell%` - Returns currently selected spell of the target, on the held item (cast item).
-- `%magicspells_int2hex_[int]%` - Converts integers to hex. Useful for translating MS number variables to hex, combined with the unicode placeholder. 
+- `%magicspells_int2hex_[int],(empty)%` - Converts integers to hex. Useful for translating MS number variables to hex, combined with the unicode placeholder. Optional `empty` parameter should be a number of zeros to prepend. Optional because 4 is the default value. 
 - `%magicspells_unicode_[string]%` - Parses anything matching the unicode format to its character. (Format: `\uXXXX`)
