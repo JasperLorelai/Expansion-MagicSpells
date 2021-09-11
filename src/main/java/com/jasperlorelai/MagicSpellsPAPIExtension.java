@@ -213,7 +213,15 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion {
 
 			case "int2hex": {
 				try {
-					return Integer.toHexString(Integer.parseInt(Util.joinArgs(args, 1)));
+					String text = Util.joinArgs(args, 1);
+					splits = text.split(",", 2);
+					text = Integer.parseInt(splits[0], 16) + "";
+					int empty = splits.length > 1 ? Integer.parseInt(splits[1]) : 4;
+					while (text.length() < empty) {
+						//noinspection StringConcatenationInLoop
+						text = "0" + text;
+					}
+					return text;
 				}
 				catch (NumberFormatException ignored) {
 					return null;
