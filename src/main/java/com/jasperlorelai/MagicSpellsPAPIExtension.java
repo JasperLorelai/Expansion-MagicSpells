@@ -26,7 +26,7 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion {
 	private static final String AUTHOR = "JasperLorelai";
 	private static final String PLUGIN = "MagicSpells";
 	private static final String NAME = "magicspells";
-	private static final String VERSION = "4.2";
+	private static final String VERSION = "5.0";
 	private MagicSpells plugin;
 
 	@Override
