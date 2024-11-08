@@ -296,9 +296,10 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion {
 	}
 
 	/**
-	 * item ms     [magicItemName]
-	 * item nbt    [magicItemName]
-	 * item amount [magicItemName]
+	 * item ms        [magicItemName]
+	 * item nbt       [magicItemName]
+	 * item component [magicItemName]
+	 * item amount    [magicItemName]
 	 */
 	private String processMagicItem(String args) {
 		if (args == null) return null;
@@ -316,6 +317,11 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion {
 			case "nbt" -> {
 				String data = item.getType().getKey().toString();
 				if (item.hasItemMeta()) data += item.getItemMeta().getAsString();
+				yield data;
+			}
+			case "component" -> {
+				String data = item.getType().getKey().toString();
+				if (item.hasItemMeta()) data += item.getItemMeta().getAsComponentString();
 				yield data;
 			}
 			case "amount" -> String.valueOf(item.getAmount());
