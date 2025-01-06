@@ -19,8 +19,8 @@ public class Util {
 		}
 	}
 
-	public static String colorise(String string) {
-		return com.nisovin.magicspells.util.Util.getLegacyFromMiniMessage(string);
+	public static String miniMessage(String string) {
+		return com.nisovin.magicspells.util.Util.getMiniMessageFromLegacy(string);
 	}
 
 }

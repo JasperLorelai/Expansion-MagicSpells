@@ -299,7 +299,7 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion {
 
 		Spell spell = MagicSpells.getSpellbook(player).getActiveSpell(player.getInventory().getItemInMainHand());
 		if (spell == null) return "";
-		return isDisplayed ? Util.colorise(spell.getName()) : spell.getInternalName();
+		return isDisplayed ? Util.miniMessage(spell.getName()) : spell.getInternalName();
 	}
 
 	/**
