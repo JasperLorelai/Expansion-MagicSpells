@@ -1,13 +1,32 @@
 package eu.jasperlorelai.mspapiexpansion;
 
+import java.io.File;
+import java.util.Map;
+import java.util.UUID;
+import java.util.HashMap;
+import java.util.Scanner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
+import java.util.stream.Collectors;
+import java.util.function.BiFunction;
+import java.nio.charset.StandardCharsets;
+
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.event.Listener;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import me.clip.placeholderapi.PlaceholderAPI;
+import me.clip.placeholderapi.expansion.Cacheable;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 
 import com.nisovin.magicspells.Spell;
@@ -20,9 +39,12 @@ import com.nisovin.magicspells.util.magicitems.MagicItems;
 import com.nisovin.magicspells.util.data.DataLivingEntity;
 import com.nisovin.magicspells.util.managers.VariableManager;
 import com.nisovin.magicspells.variables.variabletypes.GlobalVariable;
+import com.nisovin.magicspells.variables.variabletypes.PlayerVariable;
 import com.nisovin.magicspells.variables.variabletypes.GlobalStringVariable;
 
-public class MagicSpellsPAPIExtension extends PlaceholderExpansion {
+public class MagicSpellsPAPIExtension extends PlaceholderExpansion implements Listener, Cacheable {
+
+	private static final Pattern VARIABLE_FILE_PATTERN = Pattern.compile("PLAYER_(?<id1>\\w{8})(?<id2>\\w{4})(?<id3>\\w{4})(?<id4>\\w{4})(?<id5>\\w{12})\\.txt");
 
 	private static final String AUTHOR = "JasperLorelai";
 	private static final String IDENTIFIER = "ms";
@@ -32,6 +54,9 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion {
 
 	private MagicSpells plugin;
 
+	private File variableDir;
+	private final Map<UUID, Map<String, String>> variableCache = new HashMap<>();
+
 	@Override
 	public boolean canRegister() {
 		return Bukkit.getPluginManager().getPlugin(getRequiredPlugin()) != null;
@@ -40,8 +65,35 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion {
 	@Override
 	public boolean register() {
 		if (!canRegister()) return false;
+
 		plugin = (MagicSpells) Bukkit.getPluginManager().getPlugin(getRequiredPlugin());
 		if (plugin == null) return false;
+
+		variableDir = new File(plugin.getDataFolder(), "vars");
+
+		// Cache variable files of all offline players.
+		Bukkit.getScheduler().runTask(plugin, () -> {
+			File[] variableFiles = variableDir.listFiles();
+			if (variableFiles == null) return;
+			var onlinePlayers = Bukkit.getOnlinePlayers();
+
+			varLoop:
+			for (File variableFile : variableFiles) {
+				if (variableFile.isDirectory()) continue;
+
+				Matcher matcher = VARIABLE_FILE_PATTERN.matcher(variableFile.getName());
+				if (!matcher.matches()) continue;
+
+				try {
+					UUID uuid = UUID.fromString(Stream.of("id1", "id2", "id3", "id4", "id5").map(matcher::group).collect(Collectors.joining("-")));
+					for (Player player : onlinePlayers)
+						if (player.getUniqueId().equals(uuid))
+							continue varLoop;
+					cacheVariableFile(uuid, variableFile);
+				} catch (IllegalArgumentException ignored) {}
+			}
+		});
+
 		return super.register();
 	}
 
@@ -75,6 +127,8 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion {
 		return VERSION;
 	}
 
+	@Override
+	@Nullable
 	public String onRequest(OfflinePlayer offlinePlayer, @NotNull String identifier) {
 		Player player = offlinePlayer != null && offlinePlayer.isOnline() ? (Player) offlinePlayer : null;
 
@@ -84,6 +138,7 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion {
 
 		return switch (name) {
 			case "variable" -> processVariable(player, args);
+			case "offlinevar" -> processOfflineVariable(offlinePlayer, args);
 			case "cooldown" -> processCooldown(player, args);
 			case "charges" -> processCharges(player, args);
 			case "mana" -> processMana(player, args);
@@ -95,17 +150,27 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion {
 		};
 	}
 
+	@Override
+	public void clear() {
+		plugin = null;
+		variableDir = null;
+		variableCache.clear();
+	}
+
 	private String error(String string) {
 		return plugin.getName() + ": " + string;
 	}
 
-	/**
-	 * variable     [varname],(precision)
-	 * variable max [varname],(precision)
-	 * variable min [varname],(precision)
-	 */
-	private String processVariable(Player player, String args) {
+	private enum VariableValue {
+		MAX,
+		MIN,
+		CURRENT
+	}
+
+	private String processVariableCommon(OfflinePlayer player, String args, BiFunction<Variable, String, String> function) {
 		if (args == null) return null;
+		VariableManager manager = MagicSpells.getVariableManager();
+		if (manager == null) return error("Variable manager not loaded.");
 
 		String[] splits = args.split("_", 2);
 		VariableValue type = switch (splits[0]) {
@@ -128,8 +193,6 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion {
 			precision = splits[1];
 		}
 
-		VariableManager manager = MagicSpells.getVariableManager();
-		if (manager == null) return null;
 		varName = PlaceholderAPI.setBracketPlaceholders(player, varName).trim();
 		Variable variable = manager.getVariable(varName);
 		if (variable == null) return error("Variable '" + varName + "' wasn't found.");
@@ -144,7 +207,7 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion {
 					break;
 				}
 				if (player == null) return error("Player target not found.");
-				value = variable.getStringValue(player);
+				value = function.apply(variable, varName);
 			}
 		}
 		if (value == null) return null;
@@ -152,10 +215,67 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion {
 		return Util.setPrecision(value, precision);
 	}
 
-	private enum VariableValue {
-		MAX,
-		MIN,
-		CURRENT
+
+	/**
+	 * variable     [varname],(precision)
+	 * variable max [varname],(precision)
+	 * variable min [varname],(precision)
+	 */
+	private String processVariable(Player player, String args) {
+		return processVariableCommon(player, args, (variable, varName) -> variable.getStringValue(player));
+	}
+
+	/**
+	 * offlinevar     [varname],(precision)
+	 * offlinevar max [varname],(precision)
+	 * offlinevar min [varname],(precision)
+	 */
+	private String processOfflineVariable(OfflinePlayer player, String args) {
+		return processVariableCommon(player, args, (variable, varName) -> {
+			if (player.isOnline()) return variable.getStringValue((Player) player);
+			return variableCache.getOrDefault(player.getUniqueId(), Map.of()).getOrDefault(varName, "");
+		});
+	}
+
+	@EventHandler(priority = EventPriority.HIGHEST)
+	public void onPlayerJoin(PlayerJoinEvent event) {
+		variableCache.remove(event.getPlayer().getUniqueId());
+	}
+
+	@EventHandler(priority = EventPriority.HIGHEST)
+	public void onPlayerQuit(PlayerQuitEvent event) {
+		Bukkit.getScheduler().runTask(plugin, () -> {
+			if (!variableDir.exists()) return;
+
+			Player player = event.getPlayer();
+			String uniqueId = com.nisovin.magicspells.util.Util.getUniqueId(player);
+			File file = new File(variableDir, "PLAYER_" + uniqueId + ".txt");
+			if (!file.exists() || file.isDirectory()) return;
+			cacheVariableFile(player.getUniqueId(), file);
+		});
+	}
+
+	private void cacheVariableFile(UUID uuid, File file) {
+		VariableManager manager = MagicSpells.getVariableManager();
+		if (manager == null) return;
+
+		try {
+			Scanner scanner = new Scanner(file, StandardCharsets.UTF_8);
+			while (scanner.hasNext()) {
+				String line = scanner.nextLine().trim();
+				if (line.isEmpty()) continue;
+				String[] splits = line.split("=", 2);
+				String variableName = splits[0];
+				String value = splits[1];
+
+				Variable variable = manager.getVariable(variableName);
+				if (!(variable instanceof PlayerVariable) || !variable.isPermanent()) continue;
+
+				variableCache.computeIfAbsent(uuid, k -> new HashMap<>());
+				variableCache.get(uuid).put(variableName, value);
+			}
+			scanner.close();
+		} catch (Exception ignored) {}
 	}
 
 	/**
