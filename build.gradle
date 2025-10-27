@@ -25,5 +25,5 @@ dependencies {
 
 build {
     if (version.toString().split("\\.")[0].toInteger() <= 2) return
-    throw new Error("Remove getCooldown() compatibility method.")
+    throw new Error("Remove getCooldown() and getDuration() compatibility method.")
 }
