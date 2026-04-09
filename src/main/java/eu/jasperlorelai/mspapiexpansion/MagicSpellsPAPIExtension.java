@@ -135,17 +135,25 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion implements Li
 		String[] splits = identifier.split("_", 2);
 		String name = splits[0];
 		String args = splits.length > 1 ? splits[1] : null;
+		boolean debug = false;
+
+		if (name.equals("debug") && args != null) {
+			splits = args.split("_", 2);
+			name = splits[0];
+			args = splits.length > 1 ? splits[1] : null;
+			debug = true;
+		}
 
 		return switch (name) {
-			case "variable" -> processVariable(player, args);
-			case "offlinevar" -> processOfflineVariable(offlinePlayer, args);
-			case "cooldown" -> processCooldown(player, args);
-			case "charges" -> processCharges(player, args);
-			case "mana" -> processMana(player, args);
-			case "buff" -> processBuff(player, args);
-			case "selectedspell" -> processSelectedSpell(player, args);
-			case "data" -> processDataElement(player, args);
-			case "item" -> processMagicItem(args);
+			case "variable" -> processVariable(player, args, debug);
+			case "offlinevar" -> processOfflineVariable(offlinePlayer, args, debug);
+			case "cooldown" -> processCooldown(player, args, debug);
+			case "charges" -> processCharges(player, args, debug);
+			case "mana" -> processMana(player, args, debug);
+			case "buff" -> processBuff(player, args, debug);
+			case "selectedspell" -> processSelectedSpell(player, args, debug);
+			case "data" -> processDataElement(player, args, debug);
+			case "item" -> processMagicItem(args, debug);
 			default -> null;
 		};
 	}
@@ -157,8 +165,8 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion implements Li
 		variableCache.clear();
 	}
 
-	private String error(String string) {
-		return plugin.getName() + ": " + string;
+	private String error(String string, boolean debug) {
+		return debug ? plugin.getName() + ": " + string : "";
 	}
 
 	private enum VariableValue {
@@ -167,10 +175,10 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion implements Li
 		CURRENT
 	}
 
-	private String processVariableCommon(OfflinePlayer player, String args, BiFunction<Variable, String, String> function) {
+	private String processVariableCommon(OfflinePlayer player, String args, BiFunction<Variable, String, String> function, boolean debug) {
 		if (args == null) return null;
 		VariableManager manager = MagicSpells.getVariableManager();
-		if (manager == null) return error("Variable manager not loaded.");
+		if (manager == null) return error("Variable manager not loaded.", debug);
 
 		String[] splits = args.split("_", 2);
 		VariableValue type = switch (splits[0]) {
@@ -195,7 +203,7 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion implements Li
 
 		varName = PlaceholderAPI.setBracketPlaceholders(player, varName).trim();
 		Variable variable = manager.getVariable(varName);
-		if (variable == null) return error("Variable '" + varName + "' wasn't found.");
+		if (variable == null) return error("Variable '" + varName + "' wasn't found.", debug);
 
 		String value = null;
 		switch (type) {
@@ -206,7 +214,7 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion implements Li
 					value = variable.getStringValue((String) null);
 					break;
 				}
-				if (player == null) return error("Player target not found.");
+				if (player == null) return error("Player target not found.", debug);
 				value = function.apply(variable, varName);
 			}
 		}
@@ -221,8 +229,8 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion implements Li
 	 * variable max [varname],(precision)
 	 * variable min [varname],(precision)
 	 */
-	private String processVariable(Player player, String args) {
-		return processVariableCommon(player, args, (variable, varName) -> variable.getStringValue(player));
+	private String processVariable(Player player, String args, boolean debug) {
+		return processVariableCommon(player, args, (variable, varName) -> variable.getStringValue(player), debug);
 	}
 
 	/**
@@ -230,11 +238,11 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion implements Li
 	 * offlinevar max [varname],(precision)
 	 * offlinevar min [varname],(precision)
 	 */
-	private String processOfflineVariable(OfflinePlayer player, String args) {
+	private String processOfflineVariable(OfflinePlayer player, String args, boolean debug) {
 		return processVariableCommon(player, args, (variable, varName) -> {
 			if (player.isOnline()) return variable.getStringValue((Player) player);
 			return variableCache.getOrDefault(player.getUniqueId(), Map.of()).getOrDefault(varName, "");
-		});
+		}, debug);
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)
@@ -282,7 +290,7 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion implements Li
 	 * cooldown     [spellname],(precision)
 	 * cooldown now [spellname],(precision)
 	 */
-	private String processCooldown(Player player, String args) {
+	private String processCooldown(Player player, String args, boolean debug) {
 		if (args == null) return null;
 
 		String[] splits = args.split("_", 2);
@@ -303,11 +311,11 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion implements Li
 
 		spellName = PlaceholderAPI.setBracketPlaceholders(player, spellName).trim();
 		Spell spell = MagicSpells.getSpellByInternalName(spellName);
-		if (spell == null) return error("Spell '" + spellName + "' wasn't found.");
+		if (spell == null) return error("Spell '" + spellName + "' wasn't found.", debug);
 
 		float cooldown;
 		if (isNow) {
-			if (player == null) return error("Player target not found.");
+			if (player == null) return error("Player target not found.", debug);
 			else cooldown = spell.getCooldown(player);
 		}
 		else cooldown = Util.getFloatData(spell, "getCooldown", Spell.class);
@@ -319,7 +327,7 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion implements Li
 	 * charges          [spellname]
 	 * charges consumed [spellname]
 	 */
-	private String processCharges(Player player, String args) {
+	private String processCharges(Player player, String args, boolean debug) {
 		if (args == null) return null;
 
 		String[] splits = args.split("_", 2);
@@ -332,10 +340,10 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion implements Li
 		else spellName = args;
 		spellName = PlaceholderAPI.setBracketPlaceholders(player, spellName).trim();
 		Spell spell = MagicSpells.getSpellByInternalName(spellName);
-		if (spell == null) return error("Spell '" + spellName + "' wasn't found.");
+		if (spell == null) return error("Spell '" + spellName + "' wasn't found.", debug);
 
 		if (isConsumed) {
-			if (player == null) return error("Player target not found.");
+			if (player == null) return error("Player target not found.", debug);
 			else return String.valueOf(spell.getCharges(player));
 		}
 		return String.valueOf(spell.getCharges());
@@ -345,8 +353,8 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion implements Li
 	 * mana
 	 * mana max
 	 */
-	private String processMana(Player player, String args) {
-		if (player == null) return error("Player target not found.");
+	private String processMana(Player player, String args, boolean debug) {
+		if (player == null) return error("Player target not found.", debug);
 		boolean isMax = args != null && args.equals("max");
 
 		ManaHandler handler = MagicSpells.getManaHandler();
@@ -357,7 +365,7 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion implements Li
 	 * buff     [spellname],(precision)
 	 * buff now [spellname],(precision)
 	 */
-	private String processBuff(Player player, String args) {
+	private String processBuff(Player player, String args, boolean debug) {
 		if (args == null) return null;
 
 		String[] splits = args.split("_", 2);
@@ -378,11 +386,11 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion implements Li
 
 		spellName = PlaceholderAPI.setBracketPlaceholders(player, spellName).trim();
 		Spell spell = MagicSpells.getSpellByInternalName(spellName);
-		if (!(spell instanceof BuffSpell buff)) return error("Buff spell '" + spellName + "' not found.");
+		if (!(spell instanceof BuffSpell buff)) return error("Buff spell '" + spellName + "' not found.", debug);
 
 		float duration;
 		if (isNow) {
-			if (player == null) return error("Player target not found.");
+			if (player == null) return error("Player target not found.", debug);
 			else duration = buff.getDuration(player);
 		}
 		else duration = Util.getFloatData(buff, "getDuration", BuffSpell.class);
@@ -394,8 +402,8 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion implements Li
 	 * selectedspell
 	 * selectedspell displayed
 	 */
-	private String processSelectedSpell(Player player, String args) {
-		if (player == null) return error("Player target not found.");
+	private String processSelectedSpell(Player player, String args, boolean debug) {
+		if (player == null) return error("Player target not found.", debug);
 		boolean isDisplayed = args != null && args.equals("displayed");
 
 		Spell spell = MagicSpells.getSpellbook(player).getActiveSpell(player.getInventory().getItemInMainHand());
@@ -406,12 +414,12 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion implements Li
 	/**
 	 * data [dataElement]
 	 */
-	private String processDataElement(Player player, String args) {
+	private String processDataElement(Player player, String args, boolean debug) {
 		if (args == null) return null;
 		try {
 			return DataLivingEntity.getDataFunction(PlaceholderAPI.setBracketPlaceholders(player, args)).apply(player);
 		} catch (NullPointerException exception) {
-			return error(exception.getMessage());
+			return error(exception.getMessage(), debug);
 		}
 	}
 
@@ -421,7 +429,7 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion implements Li
 	 * item component [magicItemName]
 	 * item amount    [magicItemName]
 	 */
-	private String processMagicItem(String args) {
+	private String processMagicItem(String args, boolean debug) {
 		if (args == null) return null;
 		String[] splits = args.split("_", 2);
 		if (splits.length < 2) return null;
@@ -429,7 +437,7 @@ public class MagicSpellsPAPIExtension extends PlaceholderExpansion implements Li
 		String type = splits[0];
 		String itemName = splits[1];
 		MagicItem magicItem = MagicItems.getMagicItemByInternalName(itemName);
-		if (magicItem == null) return error("Item '" + itemName + "' not found.");
+		if (magicItem == null) return error("Item '" + itemName + "' not found.", debug);
 		ItemStack item = magicItem.getItemStack();
 
 		return switch (type) {
